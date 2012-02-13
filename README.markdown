@@ -14,14 +14,17 @@ Example usage:
 
         python licenser/ add my_project/ "Project Name" "Owner Name" freebsd
 
-To exclude directories (note: it ignores all files/directories starting with "."
-by default):
-
-        python licenser/ add my_project/ "Project Name" "Owner Name" freebsd -X my_project/temp/ my_project/Lib
-
 To remove headers/licenses added with this tool:
 
         python licenser/ rm my_project/
+
+Features:
+
+*   Supported file extensions: .scm .vb .py .f95 .cloj .go .as .lsp .cs .hla .pp .pas .java .for .scala .hpp .lua .rb .ada .forth .pl .hs .js .erl .f90 .4th .jsp .sql .php .asm .dpr .c .d .f .lisp .ml .m .lpr .p .sh .h .cpp .tcl
+*   Supported licenses: FreeBSD, BSD Old, BSD New, MIT, GPLv3, Apache v2, WTFPL
+*   Will not override existing licenses or headers.
+*   Detects shebangs and appends header after it.
+*   Exclude specific files or directories with the -x or -X options, respectively.
 
 Requires the argparse module, which is included by default in Python 2.7 and
 3.2+. Older versions can install it separately - see [here](http://code.google.com/p/argparse/).

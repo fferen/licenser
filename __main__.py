@@ -90,6 +90,10 @@ def rmTemplate(code, ext, template):
         return None
     return newCode
 
+def hasHeader(code):
+    """Return True if code contains a copyright header."""
+    return any('copyright' in line.lower() for line in code.splitlines()[:40])
+
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # map file extension to comment style, 1-tuple for single line, 2-tuple for
@@ -277,15 +281,15 @@ for curDir, dirs, files in os.walk(args.srcDir):
         else:
             continue
 
+        if hasHeader(fText) and args.cmd == 'add':
+            printV('header already found in ' + absF)
+            continue
+
         for headerTempl, _ in nameToData.values():
-            # check if header already exists
             newCode = rmTemplate(fText, ext, headerTempl)
-            if newCode is not None:
-                if args.cmd == 'add':
-                    printV('header already found in ' + absF)
-                elif args.cmd == 'rm':
-                    open(absF, 'w').write(newCode)
-                    printV('removed header from ' + absF)
+            if newCode is not None and args.cmd == 'rm':
+                open(absF, 'w').write(newCode)
+                printV('removed header from ' + absF)
                 break
         else:
             if args.cmd == 'add':
