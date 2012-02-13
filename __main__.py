@@ -45,6 +45,17 @@ def fillTemplate(template):
             .replace('<OWNER>', args.owner)
             .replace('<ORGANIZATION>', args.organization))
 
+def getComment(ext, header):
+    """
+    Return what to prepend to the source code, given file extension and
+    filled-in header template.
+    """
+    cmt = extToComment[ext]
+    if len(cmt) == 1:
+        return '\n'.join(cmt[0] + ' ' + line for line in header.strip().split('\n')) + '\n\n'
+    else:
+        return '%s\n%s%s\n\n' % (cmt[0], header, cmt[1])
+
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # map file extension to comment style, 1-tuple for single line, 2-tuple for
@@ -152,6 +163,14 @@ parser.add_argument(
         nargs='*',
         default=()
         )
+parser.add_argument(
+        '-r',
+        '--remove-license',
+        dest='rmLicense',
+        help='remove headers and license file instead; positional arguments must match what is in the header/license exactly for it to be removed',
+        action='store_true',
+        default=False
+        )
 
 args = parser.parse_args()
 
@@ -164,10 +183,16 @@ args.srcDir = os.path.abspath(args.srcDir)
 header, license = (fillTemplate(s) for s in nameToData[args.license])
 
 for curDir, dirs, files in os.walk(args.srcDir):
-    if curDir in args.excludeDirs:
-        continue
-
     printV('searching ' + curDir)
+
+    for xDir in args.excludeDirs:
+        for testDir in dirs:
+            absTest = os.path.join(curDir, testDir)
+            if absTest == xDir:
+                dirs.remove(testDir)
+                printV('skipped ' + absTest)
+                break
+
     for f in files:
         absF = os.path.join(curDir, f)
         fText = open(absF).read()
@@ -182,23 +207,34 @@ for curDir, dirs, files in os.walk(args.srcDir):
         else:
             continue
 
-        if any(fillTemplate(header) in fText \
-                for header, license in nameToData.values()):
-            printV('header already found in ' + absF)
-            continue
-
-        cmt = extToComment[ext]
-        if len(cmt) == 1:
-            # single line comment syntax
-            open(absF, 'w').write('\n'.join(cmt[0] + ' ' + line for line in header.split('\n')) + '\n' + fText)
+        for testHeader, _ in nameToData.values():
+            testHeader = fillTemplate(testHeader)
+            if testHeader in fText:
+                if args.rmLicense:
+                    open(absF, 'w').write(fText.replace(getComment(ext, testHeader), ''))
+                    printV('removed header from ' + absF)
+                    break
+                else:
+                    printV('header already found in ' + absF)
+                    break
         else:
-            open(absF, 'w').write('%s\n%s%s\n\n' % (cmt[0], header, cmt[1]) + fText)
-        printV('added header to ' + absF)
+            if not args.rmLicense:
+                open(absF, 'w').write(getComment(ext, header) + fText)
+                printV('added header to ' + absF)
 
-for f in ('COPYING', 'LICENSE'):
-    if f in [s.upper() for s in os.listdir(args.srcDir)]:
-        printV('license file already detected: ' + os.path.join(args.srcDir, f))
+for f in os.listdir(args.srcDir):
+    if f.lower() in ('copying', 'license'):
+        path = os.path.join(args.srcDir, f)
+        if args.rmLicense:
+            os.unlink(path)
+            printV('removed license file: ' + path)
+        else:
+            printV('license file already exists: ' + path)
         break
 else:
-    open(os.path.join(args.srcDir, 'COPYING'), 'w').write(license)
-    printV('added license text to ' + os.path.join(args.srcDir, 'COPYING'))
+    if args.rmLicense:
+        printV('no license file found in ' + args.srcDir)
+    else:
+        path = os.path.join(args.srcDir, 'COPYING')
+        open(path, 'w').write(license)
+        printV('added license text to ' + path)
