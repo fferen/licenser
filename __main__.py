@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Copyright (c) 2012, Kevin Han
 All rights reserved.
@@ -25,6 +26,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.'
 """
 
 import os
+import itertools
+import re
 import fnmatch
 import urllib2
 from datetime import datetime
@@ -36,14 +39,28 @@ def printV(*s):
     if args.verbose > 0:
         print ' '.join(str(a) for a in s)
 
-def fillTemplate(template):
+def fillTemplate(template, args):
     """Fill in template with values in args."""
-    # hah this almost looks like lisp code
-    return (template
-            .replace('<PROG_NAME>', args.progName)
-            .replace('<YEAR>', args.year)
-            .replace('<OWNER>', args.owner)
-            .replace('<ORGANIZATION>', args.organization))
+    for var in 'progName year owner organization'.split():
+        val = vars(args)[var]
+        template = (template
+                .replace('<%s>' % var, val)
+                .replace('<%s_upper>' % var, val.upper())
+                )
+    return template
+
+def fillTemplateRE(template, args):
+    """
+    Fill in a template with literal values in args, safe to use as a regex.
+    """
+    template = re.escape(template)
+    for var in 'progName year owner organization'.split():
+        val = vars(args)[var]
+        template = (template
+                .replace(re.escape('<%s>' % var), val)
+                .replace(re.escape('<%s_upper>' % var), val.upper())
+                )
+    return template
 
 def getComment(ext, header):
     """
@@ -55,6 +72,23 @@ def getComment(ext, header):
         return '\n'.join(cmt[0] + ' ' + line for line in header.strip().split('\n')) + '\n\n'
     else:
         return '%s\n%s%s\n\n' % (cmt[0], header, cmt[1])
+
+def rmTemplate(code, ext, template):
+    """Return code with the header template removed, or None if not found."""
+    class _Generic:
+        pass
+    dummyArgs = _Generic()
+    dummyArgs.progName = r'[^\n]+?'
+    dummyArgs.year = r'[^\n]+?'
+    dummyArgs.owner = r'[^\n]+?'
+    dummyArgs.organization = r'[^\n]+?'
+    cmtRegex = getComment(ext, fillTemplateRE(template, dummyArgs))
+##    print 'REGEX', cmtRegex
+##    print 'CODE', code
+    newCode = re.sub(cmtRegex, '', code, count=1)
+    if code == newCode:
+        return None
+    return newCode
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -94,85 +128,111 @@ nameToData = dict(
         for license in LICENSES
         )
 
+class _ArgHolder:
+    verbose = True
+    includeFiles = ['*.' + ext for ext in extToComment]
+    excludeFiles = ()
+    excludeDirs = ()
+    organization = ''
+    year = str(datetime.now().year)
+    includeHidden = False
+
+    # This class namespace is a way to specify default values of arguments that
+    # are only needed for the add subcommand, but since the execution is almost
+    # the same for rm it's easier to fill everything in with dummy values.
+    progName = ''
+    owner = ''
+    license = 'gplv3'
+
+args = _ArgHolder
+
 desc = '''
 Add a software license to a source directory, and prepend the associated header
 to all source files.
+
+Remove added licenses using the "rm" subcommand.
 '''
 
 parser = argparse.ArgumentParser(description=desc.strip())
-
-# positional args
-parser.add_argument(
-        'srcDir',
-        help='directory containing source files',
-        metavar='src_dir'
+subparsers = parser.add_subparsers(
+        title='commands',
+        help='type "add -h" or "rm -h" for specific help',
+        dest='cmd'
         )
-parser.add_argument('progName', help='program name', metavar='prog_name')
-parser.add_argument('owner', help='copyright owner')
-parser.add_argument(
+
+addParser = subparsers.add_parser('add', help='add a license to a project')
+rmParser = subparsers.add_parser('rm', help='remove a previously added license')
+
+for p in (addParser, rmParser):
+    # These are actually general arguments, but if you include them as such,
+    # they won't show up in the help dialog of add or rm. :(
+    p.add_argument(
+            'srcDir',
+            help='directory containing source files',
+            metavar='src_dir'
+            )
+
+    p.add_argument(
+            '-q',
+            '--quiet',
+            dest='verbose',
+            action='store_false',
+            help="don't print what it's doing"
+            )
+    p.add_argument(
+            '-x',
+            '--exclude-files',
+            dest='excludeFiles',
+            metavar='PATTERN',
+            help='file wildcards to ignore, eg. -x *.c *.h',
+            nargs='+'
+            )
+    p.add_argument(
+            '-X',
+            '--exclude-dirs',
+            dest='excludeDirs',
+            help='directories to ignore, eg. -X lib/ temp/',
+            metavar='DIR',
+            nargs='+'
+            )
+    p.add_argument(
+            '-i',
+            '--include-hidden',
+            dest='includeHidden',
+            help='include files and directories starting with ".", ignored by default',
+            action='store_true'
+            )
+
+# positional args for add
+addParser.add_argument('progName', help='program name', metavar='prog_name')
+addParser.add_argument('owner', help='copyright owner')
+addParser.add_argument(
         'license',
         choices=LICENSES,
         help='which license to use'
         )
 
-# optional args
-parser.add_argument(
-        '-q',
-        '--quiet',
-        dest='verbose',
-        action='store_false',
-        default='true',
-        help="don't print what it's doing"
-        )
-parser.add_argument(
+# options for add
+addParser.add_argument(
         '-o',
         '--organization',
-        help='organization of the owner, required for bsdnew and bsdold',
-        default=''
+        help='organization of the owner, required for bsdnew and bsdold'
         )
-parser.add_argument(
+addParser.add_argument(
         '-y',
         '--year',
-        help='copyright year; default: current year',
-        default=str(datetime.now().year)
+        help='copyright year; default: current year'
         )
-parser.add_argument(
+addParser.add_argument(
         '-f',
         '--files',
         help='file wildcards to add headers to, eg. -f *.c *.h; recognizes most source file extensions by default, so this option is not usually needed',
-        nargs='*',
+        nargs='+',
         dest='includeFiles',
-        metavar='PATTERN',
-        default=['*.' + ext for ext in extToComment]
-        )
-parser.add_argument(
-        '-x',
-        '--exclude-files',
-        dest='excludeFiles',
-        metavar='PATTERN',
-        help='file wildcards to skip adding headers to, eg. -x *.c *.h',
-        nargs='*',
-        default=()
-        )
-parser.add_argument(
-        '-X',
-        '--exclude-dirs',
-        dest='excludeDirs',
-        help='directories to ignore, eg. -X lib/ temp/',
-        metavar='DIR',
-        nargs='*',
-        default=()
-        )
-parser.add_argument(
-        '-r',
-        '--remove-license',
-        dest='rmLicense',
-        help='remove headers and license file instead; positional arguments must match what is in the header/license exactly for it to be removed',
-        action='store_true',
-        default=False
+        metavar='PATTERN'
         )
 
-args = parser.parse_args()
+parser.parse_args(namespace=args)
 
 if not args.organization and args.license in ('bsdold', 'bsdnew'):
     parser.error('organization required for: bsdold, bsdnew')
@@ -180,10 +240,16 @@ if not args.organization and args.license in ('bsdold', 'bsdnew'):
 args.excludeDirs = [os.path.abspath(d) for d in args.excludeDirs]
 args.srcDir = os.path.abspath(args.srcDir)
 
-header, license = (fillTemplate(s) for s in nameToData[args.license])
+header, license = (fillTemplate(s, args) for s in nameToData[args.license])
 
 for curDir, dirs, files in os.walk(args.srcDir):
     printV('searching ' + curDir)
+
+    if not args.includeHidden:
+        for testDir in list(dirs):
+            if testDir.startswith('.'):
+                dirs.remove(testDir)
+                printV('skipped ' + os.path.join(curDir, testDir))
 
     for xDir in args.excludeDirs:
         for testDir in dirs:
@@ -194,8 +260,12 @@ for curDir, dirs, files in os.walk(args.srcDir):
                 break
 
     for f in files:
+        if not args.includeHidden and f.startswith('.'):
+            continue
+
         absF = os.path.join(curDir, f)
         fText = open(absF).read()
+
         if any(fnmatch.fnmatch(f, wc) for wc in args.excludeFiles):
             printV('skipped ' + absF)
             continue
@@ -207,34 +277,39 @@ for curDir, dirs, files in os.walk(args.srcDir):
         else:
             continue
 
-        for testHeader, _ in nameToData.values():
-            testHeader = fillTemplate(testHeader)
-            if testHeader in fText:
-                if args.rmLicense:
-                    open(absF, 'w').write(fText.replace(getComment(ext, testHeader), ''))
-                    printV('removed header from ' + absF)
-                    break
-                else:
+        for headerTempl, _ in nameToData.values():
+            # check if header already exists
+            newCode = rmTemplate(fText, ext, headerTempl)
+            if newCode is not None:
+                if args.cmd == 'add':
                     printV('header already found in ' + absF)
-                    break
+                elif args.cmd == 'rm':
+                    open(absF, 'w').write(newCode)
+                    printV('removed header from ' + absF)
+                break
         else:
-            if not args.rmLicense:
-                open(absF, 'w').write(getComment(ext, header) + fText)
+            if args.cmd == 'add':
+                # preserve shebangs
+                if fText.strip().startswith('#!'):
+                    i = fText.find('\n', fText.find('#!') + 2) + 1
+                else:
+                    i = 0
+                open(absF, 'w').write(fText[:i] + getComment(ext, header) + fText[i:])
                 printV('added header to ' + absF)
 
 for f in os.listdir(args.srcDir):
     if f.lower() in ('copying', 'license'):
         path = os.path.join(args.srcDir, f)
-        if args.rmLicense:
+        if args.cmd == 'add':
+            printV('license file already exists: ' + path)
+        elif args.cmd == 'rm':
             os.unlink(path)
             printV('removed license file: ' + path)
-        else:
-            printV('license file already exists: ' + path)
         break
 else:
-    if args.rmLicense:
-        printV('no license file found in ' + args.srcDir)
-    else:
+    if args.cmd == 'add':
         path = os.path.join(args.srcDir, 'COPYING')
         open(path, 'w').write(license)
         printV('added license text to ' + path)
+    elif args.cmd == 'rm':
+        printV('no license file found in ' + args.srcDir)
