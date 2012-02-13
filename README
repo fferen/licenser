@@ -1,0 +1,17 @@
+Choosing a software license sucks, and figuring out how to apply it correctly is
+a pain. Here's the solution.
+
+This is a simple Python script to automatically license a project under one of
+many popular open source licenses. Simply provide the source directory, the
+project name, owner, and license name, and it adds the license text into a
+COPYING file and prepends the right headers to all source files, correctly
+escaped with relevant comment syntax.
+
+---
+
+Confused about which license to choose? Read this: 
+
+http://www.codinghorror.com/blog/2007/04/pick-a-license-any-license.html
+
+Hint: if you just want attribution but no other restrictions (as I suspect most
+people do), I recommend the FreeBSD or MIT licenses.
