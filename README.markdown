@@ -29,6 +29,8 @@ Features:
 Requires the argparse module, which is included by default in Python 2.7 and
 3.2+. Older versions can install it separately - see [here](http://code.google.com/p/argparse/).
 
+Send any questions, comments, or bug reports to [kyhan2@illinois.edu](mailto:kyhan2@illinois.edu).
+
 ---
 
 Side note: don't know which license to choose? Neither did I, until I read this
