@@ -26,10 +26,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import os
-import itertools
 import re
 import fnmatch
-import urllib2
 from datetime import datetime
 import argparse
 
