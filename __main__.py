@@ -39,34 +39,22 @@ def printV(*s):
     if args.verbose > 0:
         print ' '.join(str(a) for a in s)
 
-def fillTemplate(template, args):
-    """Fill in template with values in args."""
+def fillTemplate(template, args, reEscaped=False):
+    """
+    Fill in template with values in args. Pass reEscaped=True if template is
+    regex-escaped.
+    """
+    op = re.escape if reEscaped else lambda x: x
     for var in 'progName year owner organization'.split():
         val = vars(args)[var]
         template = (template
-                .replace('<%s>' % var, val)
-                .replace('<%s_upper>' % var, val.upper())
-                )
-    return template
-
-def fillTemplateRE(template, args):
-    """
-    Fill in a template with literal values in args, safe to use as a regex.
-    """
-    template = re.escape(template)
-    for var in 'progName year owner organization'.split():
-        val = vars(args)[var]
-        template = (template
-                .replace(re.escape('<%s>' % var), val)
-                .replace(re.escape('<%s_upper>' % var), val.upper())
+                .replace(op('<%s>' % var), val)
+                .replace(op('<%s_upper>' % var), val.upper())
                 )
     return template
 
 def getComment(ext, header):
-    """
-    Return what to prepend to the source code, given file extension and
-    filled-in header template.
-    """
+    """Adds appropriate comment wrappers around header, given file extension."""
     cmt = extToComment[ext]
     if len(cmt) == 1:
         return '\n'.join(cmt[0] + ' ' + line for line in header.strip().split('\n')) + '\n\n'
@@ -82,7 +70,11 @@ def rmTemplate(code, ext, template):
     dummyArgs.year = r'[^\n]+?'
     dummyArgs.owner = r'[^\n]+?'
     dummyArgs.organization = r'[^\n]+?'
-    cmtRegex = getComment(ext, fillTemplateRE(template, dummyArgs))
+    cmtRegex = fillTemplate(
+        re.escape(getComment(ext, template)),
+        dummyArgs,
+        reEscaped=True
+        )
 ##    print 'REGEX', cmtRegex
 ##    print 'CODE', code
     newCode = re.sub(cmtRegex, '', code, count=1)
@@ -91,7 +83,10 @@ def rmTemplate(code, ext, template):
     return newCode
 
 def hasHeader(code):
-    """Return True if code contains a copyright header."""
+    """
+    Return True if code contains a copyright header. Must be more conservative
+    (return more positives) than rmTemplate.
+    """
     return any('copyright' in line.lower() for line in code.splitlines()[:40])
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))

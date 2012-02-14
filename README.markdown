@@ -5,7 +5,7 @@ This is a simple Python script to automatically license a project under one of
 many popular open source licenses. Simply provide the source directory, the
 project name and owner, and the license name, and it adds the license text into
 a COPYING file and prepends the right copyright headers to all source files,
-correctly escaped with relevant comment syntax for the language.
+correctly escaped with relevant comment syntax.
 
 It also comes with options for further configurability, such as excluding
 filetypes or specific directories.
@@ -20,10 +20,10 @@ To remove headers/licenses added with this tool:
 
 Features:
 
-*   Supported file extensions: .scm .vb .py .f95 .cloj .go .as .lsp .cs .hla .pp .pas .java .for .scala .hpp .lua .rb .ada .forth .pl .hs .js .erl .f90 .4th .jsp .sql .php .asm .dpr .c .d .f .lisp .ml .m .lpr .p .sh .h .cpp .tcl
-*   Supported licenses: FreeBSD, BSD Old, BSD New, MIT, GPLv3, Apache v2, WTFPL
+*   Supported source file extensions: .4th .ada .as .asm .c .cloj .cpp .cs .d .dpr .erl .f .f90 .f95 .for .forth .go .h .hla .hpp .hs .java .js .jsp .lisp .lpr .lsp .lua .m .ml .p .pas .php .pl .pp .py .rb .scala .scm .sh .sql .tcl .vb
+*   Supported licenses: FreeBSD, BSD Old, BSD New, MIT, GPLv3, Apache v2, [WTFPL](http://sam.zoy.org/wtfpl/)
 *   Will not override existing licenses or headers.
-*   Detects shebangs and appends header after it.
+*   Detects shebang and appends header after it.
 *   Exclude specific files or directories with the -x or -X options, respectively.
 
 Requires the argparse module, which is included by default in Python 2.7 and
