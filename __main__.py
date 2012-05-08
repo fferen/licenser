@@ -105,7 +105,7 @@ extToComment = dict(
 # Common comment styles
 for ext in 'c h cpp hpp js java php cs sql hla as m d scala go'.split():
     extToComment[ext] = ('/*', '*/')
-for ext in 'asm lisp scm lsp cloj'.split():
+for ext in 'asm lisp scm lsp cloj clj'.split():
     extToComment[ext] = (';',)
 for ext in 'pas pp lpr dpr p'.split():
     extToComment[ext] = ('{', '}')
@@ -115,6 +115,9 @@ for ext in 'f for f90 f95'.split():
     extToComment[ext] = ('!',)
 for ext in 'forth 4th'.split():
     extToComment[ext] = ('\\',)
+
+##print ' '.join('.' + e for e in sorted(extToComment))
+##exit()
 
 # map license name to (header template, license template)
 nameToData = dict(
